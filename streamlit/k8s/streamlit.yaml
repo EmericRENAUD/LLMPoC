@@ -17,7 +17,7 @@ spec:
       containers:
         - name: streamlit
           # À remplacer par l'image poussée sur votre registry
-          image: registry.example.com/streamlit-chat:0.1.0
+          image: my-streamlit
           ports:
             - containerPort: 8501
               name: http

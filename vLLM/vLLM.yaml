@@ -17,7 +17,6 @@ metadata:
 type: Opaque
 stringData:
   token: "REPLACE_WITH_TOKEN"
-
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -52,10 +51,16 @@ spec:
         volumeMounts:
           - name: llama-storage
             mountPath: /root/.cache/huggingface
+          - name: dshm
+            mountPath: /dev/shm
       volumes:
       - name: llama-storage
         persistentVolumeClaim:
           claimName: vllm-models
+      - name: dshm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 2Gi
 ---
 apiVersion: v1
 kind: Service
