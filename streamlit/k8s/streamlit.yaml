@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: streamlit
+  labels:
+    app: streamlit
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: streamlit
+  template:
+    metadata:
+      labels:
+        app: streamlit
+    spec:
+      containers:
+        - name: streamlit
+          # À remplacer par l'image poussée sur votre registry
+          image: registry.example.com/streamlit-chat:0.1.0
+          ports:
+            - containerPort: 8501
+              name: http
+          env:
+            - name: VLLM_BASE_URL
+              value: http://vllm:8000/v1
+            - name: MODEL_NAME
+              value: llm
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: http
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: streamlit
+spec:
+  selector:
+    app: streamlit
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# Optionnel : exposition via Ingress (adapter host et ingressClassName)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: streamlit
+  annotations:
+    # Streamlit utilise des WebSockets et des réponses streamées
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: chat.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: streamlit
+                port:
+                  name: http
