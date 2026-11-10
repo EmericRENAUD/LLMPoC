@@ -1,0 +1,21 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: sklearn-iris
+  annotations:
+    # Mode serverless (Knative) : valeur par défaut, explicitée ici
+    serving.kserve.io/deploymentMode: Knative
+spec:
+  predictor:
+    minReplicas: 0          # scale-to-zero
+    model:
+      modelFormat:
+        name: sklearn
+      storageUri: gs://kfserving-examples/models/sklearn/1.0/model
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: "1"
+          memory: 512Mi
