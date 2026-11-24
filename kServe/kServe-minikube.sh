@@ -3,7 +3,8 @@
 #
 # Usage :
 #   ./kserve-minikube.sh install     # démarre minikube + installe KServe et ses dépendances
-#   ./kserve-minikube.sh test        # déploie un modèle sklearn de test et l'appelle
+#   ./kserve-minikube.sh test        # déploie un modèle Llama de test et une interface streamlit exposée
+#   ./kserve-minikube.sh close       # supprime les déploiements de tests
 #   ./kserve-minikube.sh uninstall   # désinstalle KServe et ses dépendances
 #   ./kserve-minikube.sh delete      # supprime le cluster minikube
 #
@@ -81,26 +82,24 @@ test_isvc() {
   local here
   here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-  echo ">> Déploiement de l'InferenceService de test..."
-  kubectl apply -f "$here/sklearn-iris.yaml"
-  kubectl wait --for=condition=Ready inferenceservice/sklearn-iris --timeout=600s
+  echo ">> Déploiement de l'InferenceService de test LLAMA..."
+  kubectl apply -f "$here/vLLM.yaml"
+  kubectl wait --for=condition=Ready inferenceservice/llama-3-2-1b --timeout=600s
+  kubectl apply -f "$here/streamlit.yaml"
 
-  echo ">> Port-forward de l'ingress gateway Istio sur localhost:8080..."
-  kubectl -n istio-system port-forward svc/istio-ingressgateway 8080:80 >/dev/null 2>&1 &
-  local pf=$!
-  trap 'kill $pf 2>/dev/null || true' EXIT
-  sleep 3
+  echo ">> Port-forward de l'interface streamlit sur localhost:8501..."
+  kubectl port-forward svc/streamlit 8501:80 >/dev/null &&
+  echo ">> Accédez à l'interface ici http://localhost:8501"
+}
 
-  local host
-  host="$(kubectl get inferenceservice sklearn-iris -o jsonpath='{.status.url}' | sed 's#^https\?://##')"
-  echo ">> Appel du modèle (Host: $host)..."
-  curl -sS -H "Host: ${host}" -H "Content-Type: application/json" \
-    http://localhost:8080/v1/models/sklearn-iris:predict \
-    -d '{"instances": [[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]]}'
-  echo
-  echo
-  echo "Résultat attendu : {\"predictions\":[1,1]}"
-  echo "Observez le scale-to-zero : kubectl get pods -w (le pod disparaît après ~60 s d'inactivité)."
+delete_isvc() {
+  local here
+  here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+  echo ">> Suppression de l'interface de test et du déploiement de l'InferenceService de test LLAMA..."
+  kubectl delete -f "$here/streamlit.yaml"
+  kubectl delete -f "$here/vLLM.yaml"
+  echo ">> Ressources supprimées !"
 }
 
 uninstall() {
@@ -118,6 +117,7 @@ delete_cluster() {
 case "${1:-}" in
   install)   install ;;
   test)      test_isvc ;;
+  close)     delete_isvc ;;
   uninstall) uninstall ;;
   delete)    delete_cluster ;;
   *)

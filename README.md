@@ -69,7 +69,7 @@ cd kServe
 ```
 docker image pull public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.11.2 
 docker tag public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.11.2 dev.local/vllm-cpu:v0.11.2
-inikube image load dev.local/vllm-cpu:v0.11.2 -p kserve
+minikube image load dev.local/vllm-cpu:v0.11.2 -p kserve
 ```
 
 3) Build l'image streamlit et la monter dans le cluster minikube:
@@ -143,3 +143,58 @@ kubectl port-forward svc/streamlit 8501:80
 ```
 http://localhost:8501
 ```
+# Exposition du modèle avec vérification par clef API via kong et hashicorp vault
+## Installation de vault (minimale)
+1) Installer hashicorp vault:
+```
+helm repo add hashicorp https://helm.releases.hashicorp.com
+helm repo update
+
+helm install vault hashicorp/vault -n vault --create-namespace \
+  --set "server.dev.enabled=true" \
+  --set "server.dev.devRootToken=root" \
+  --set "injector.enabled=true"
+```
+
+Le pod vault-0 démarre déjà unsealed, avec le root token root. Rien à initialiser.
+
+2) Exporter les variables d'environnement suivantes:
+```
+export VAULT_ADDR=http://127.0.0.1:8200
+export VAULT_TOKEN=root
+```
+
+3) Exposer le vault sur le port 8200:
+```
+kubectl port-forward -n vault svc/vault 8200:8200
+```
+
+4) Verifier que le vault fonctionne:
+```
+vault status
+```
+## Installation de External Secret
+5) Installer External Secret Operator:
+```
+helm repo add external-secrets https://charts.external-secrets.io
+helm repo update
+helm install external-secrets external-secrets/external-secrets \
+  -n external-secrets --create-namespace --set installCRDs=true
+```
+
+6) Préparer une clef api dans le vault:
+```
+kubectl exec -n vault vault-0 -- sh -c '
+export VAULT_TOKEN=root
+vault secrets enable -path=secret kv-v2 || true
+vault kv put secret/kong/alice key=ma-super-api-key
+'
+```
+
+7) Donner à ESO l'accès au Vault (un token suffit pour le POC):
+Monter les creds du vault dans un secret
+```
+kubectl create secret generic vault-token -n external-secrets \
+  --from-literal=token=root
+```
+

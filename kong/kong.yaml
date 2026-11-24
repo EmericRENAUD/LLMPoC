@@ -1,0 +1,44 @@
+apiVersion: configuration.konghq.com/v1
+kind: KongConsumer
+metadata:
+  name: alice
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: kong
+username: alice
+credentials:
+  - alice-key-auth
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: llm-key-auth
+  namespace: default
+plugin: key-auth
+config:
+  key_names: ["apikey"]
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: llm-ingress
+  namespace: default
+  annotations:
+    konghq.com/plugins: llm-key-auth
+    konghq.com/strip-path: "true"
+    konghq.com/host-header: llama-3-2-1b-predictor.default.svc.cluster.local
+    konghq.com/connect-timeout: "10000"
+    konghq.com/read-timeout: "300000"
+    konghq.com/write-timeout: "300000"
+spec:
+  ingressClassName: kong
+  rules:
+    - http:
+        paths:
+          - path: /llm
+            pathType: Prefix
+            backend:
+              service:
+                name: llama-3-2-1b-predictor
+                port:
+                  number: 80

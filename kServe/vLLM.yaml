@@ -7,6 +7,8 @@
 # Le token HF est lu depuis le Secret `hf-secret` (clé HF_TOKEN) via une env var
 # déclarée dans l'InferenceService ; KServe la transmet au storage-initializer.
 
+# On utilise cette ressource de runtime car sinon kServe utilise le servingRuntime huggingface (basé sur vLLM avec GPU). vLLM sur CPU est un peu un OVNI
+# utilisé pour des POCs
 # --- Runtime vLLM CPU ------------------------------------------------------------
 apiVersion: serving.kserve.io/v1alpha1
 kind: ServingRuntime
@@ -57,10 +59,11 @@ metadata:
   name: llama-3-2-1b
   annotations:
     serving.kserve.io/deploymentMode: Knative
+    autoscaling.knative.dev/scale-to-zero-pod-retention-period: "5m"
 spec:
   predictor:
     serviceAccountName: hf-sa
-    minReplicas: 1       
+    minReplicas: 0       
     maxReplicas: 1
     timeout: 600          
     model:
@@ -83,7 +86,7 @@ metadata:
   name: hf-secret
 type: Opaque
 stringData:
-  HF_TOKEN: "REPLACE_WITH_TOKEN"
+  HF_TOKEN: "MON-TOKEN"
 
 ---
 apiVersion: v1
