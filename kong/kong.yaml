@@ -26,7 +26,7 @@ metadata:
   annotations:
     konghq.com/plugins: llm-key-auth
     konghq.com/strip-path: "true"
-    konghq.com/host-header: llama-3-2-1b-predictor.default.svc.cluster.local
+    konghq.com/host-header: llama-3-2-1b.default.svc.cluster.local
     konghq.com/connect-timeout: "10000"
     konghq.com/read-timeout: "300000"
     konghq.com/write-timeout: "300000"
@@ -39,6 +39,13 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: llama-3-2-1b-predictor
+                name: llama-3-2-1b
                 port:
                   number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: vllm-server
+                port:
+                  number: 8000

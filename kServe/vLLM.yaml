@@ -86,7 +86,7 @@ metadata:
   name: hf-secret
 type: Opaque
 stringData:
-  HF_TOKEN: "MON-TOKEN"
+  HF_TOKEN: "REPLACE_WITH_TOKEN"
 
 ---
 apiVersion: v1

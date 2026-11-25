@@ -197,4 +197,57 @@ Monter les creds du vault dans un secret
 kubectl create secret generic vault-token -n external-secrets \
   --from-literal=token=root
 ```
+8) Déployer le secret contenant la clef api utilisée pour appeler le llm:
+```
+kubectl apply -f external-secret/eso.yaml
+```
+
+## Installation de kong ingress controller (KIC) et déploiement d'une ingress
+
+9) installer la chart helm kong:
+```
+helm repo add kong https://charts.konghq.com
+helm repo update
+helm install kong kong/ingress -n kong --create-namespace
+```
+
+10) Déployer l'ingress kong
+```
+kubectl apply -f kong/kong.yaml
+```
+
+11) Exposer la gateway de kong:
+```
+kubectl port-forward service/kong-kong-proxy -n kong 8888:80
+```
+
+## Tester l'inférence avec clef API
+
+Test du blocage (401):
+```
+curl -i http://localhost:8888/llm/v1/chat/completions \
+  -H "Host: llama-3-2-1b.default.svc.cluster.local" \
+  -H "apikey: clef-cassee" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "llama-3.2-1b-instruct",
+    "messages": [{"role": "user", "content": "Dis bonjour en une phrase."}],
+    "max_tokens": 50
+  }'
+```
+
+Test accès (200):
+```
+curl -i http://localhost:8888/llm/v1/chat/completions \
+  -H "Host: llama-3-2-1b.default.svc.cluster.local" \
+  -H "apikey: ma-super-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "llama-3.2-1b-instruct",
+    "messages": [{"role": "user", "content": "Dis bonjour en une phrase."}],
+    "max_tokens": 50
+  }'
+```
+
+**ATTENTION AU COLD START SI VOUS TESTEZ VIA KSERVE !!! Si ça redémarre après un scale to zéro vous aurez un timeout. Il faut laisser le temps au pod de démarrer.**
 
